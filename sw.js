@@ -1,4 +1,4 @@
-const CACHE_NAME = 'neonbattle-v5';
+const CACHE_NAME = 'neonbattle-v6';
 const APP_ASSETS = [
   './',
   './index.html',

@@ -555,7 +555,7 @@ body { padding-top: var(--safe-top); padding-bottom: var(--safe-bottom); }
     </div>
     <button class="btn small title-btn-secondary" style="margin-top:24px;opacity:0.6;" onclick="G.showHowToPlay()">HOW TO PLAY</button>
     <div class="production-credit" style="margin-top:48px;">AN OZAN SELCUK PRODUCTION</div>
-    <div style="font-family:var(--font-title);font-size:0.8rem;letter-spacing:3px;opacity:0.6;margin-top:8px;color:var(--cyan);">v5</div>
+    <div style="font-family:var(--font-title);font-size:0.8rem;letter-spacing:3px;opacity:0.6;margin-top:8px;color:var(--cyan);">v6</div>
   </div>
 </div>
 
@@ -726,6 +726,9 @@ let rematchReceived = false;
 
 // Save/restore state for reconnection
 let savedGameState = null;
+let heartbeatInterval = null;
+let lastPong = 0;
+let healthCheckTimer = null;
 
 // ---- Audio Context ----
 let audioCtx = null;
@@ -1453,9 +1456,11 @@ function setupConnection() {
   SFX.connected();
   reconnectAttempts = 0;
   hideReconnect();
+  startHeartbeat();
 
   conn.on('data', handleMessage);
   conn.on('close', () => {
+    stopHeartbeat();
     if (gamePhase !== 'title' && gamePhase !== 'over') {
       SFX.disconnected();
       showReconnect();
@@ -1507,10 +1512,15 @@ function handleMessage(data) {
         if (rematchSent && rematchReceived) startRematch();
       }
       break;
+    case 'ping':
+      send({ type: 'pong' });
+      break;
+    case 'pong':
+      lastPong = Date.now();
+      break;
     case 'sync':
       // Reconnection sync
       if (data.phase === 'battle' && gamePhase === 'battle') {
-        // Resync turn
         send({ type: 'sync-ack', turn: turnCount });
       }
       break;
@@ -1520,46 +1530,130 @@ function handleMessage(data) {
   }
 }
 
+// ---- Heartbeat ----
+function startHeartbeat() {
+  stopHeartbeat();
+  lastPong = Date.now();
+  heartbeatInterval = setInterval(() => {
+    if (!conn || !conn.open) { stopHeartbeat(); return; }
+    send({ type: 'ping' });
+    // No pong in 12 seconds = stale connection
+    if (Date.now() - lastPong > 12000) {
+      console.log('Heartbeat timeout — connection stale');
+      stopHeartbeat();
+      if (gamePhase !== 'title' && gamePhase !== 'over') {
+        SFX.disconnected();
+        showReconnect();
+        tryReconnect();
+      }
+    }
+  }, 5000);
+}
+function stopHeartbeat() {
+  clearInterval(heartbeatInterval);
+  heartbeatInterval = null;
+}
+
 // ---- Reconnection ----
 function showReconnect() {
+  stopHeartbeat();
   document.getElementById('reconnectOverlay').classList.add('active');
 }
 function hideReconnect() {
   document.getElementById('reconnectOverlay').classList.remove('active');
   clearTimeout(reconnectTimer);
+  clearTimeout(healthCheckTimer);
   reconnectAttempts = 0;
 }
 
 function tryReconnect() {
-  if (reconnectAttempts >= 10) {
+  // Prevent stacking — clear any existing timer
+  clearTimeout(reconnectTimer);
+
+  if (reconnectAttempts >= 15) {
     document.getElementById('reconnectMsg').textContent = 'Connection lost. Share a new room code to restart.';
     return;
   }
   reconnectAttempts++;
-  document.getElementById('reconnectMsg').textContent = `Reconnecting... (${reconnectAttempts}/10)`;
+  document.getElementById('reconnectMsg').textContent = `Reconnecting... (${reconnectAttempts}/15)`;
   showReconnect();
-
-  // Save state
   saveGameState();
 
+  // Delay increases: 1s, 2s, 3s, 4s, 5s, then stays at 5s
+  const delay = Math.min(reconnectAttempts * 1000, 5000);
+
   reconnectTimer = setTimeout(() => {
-    if (peer && peer.disconnected) {
-      peer.reconnect();
+    // Step 1: Ensure peer is connected to signaling server
+    if (!peer || peer.destroyed) {
+      // iOS killed the peer — recreate it
+      recreatePeer();
+      return; // recreatePeer schedules next tryReconnect
     }
-    if (conn && !conn.open && peer && peer.open) {
-      // Try reconnecting
-      if (!isHost) {
+    if (peer.disconnected) {
+      peer.reconnect();
+      // Wait a moment for reconnect, then retry
+      reconnectTimer = setTimeout(() => tryReconnect(), 2000);
+      return;
+    }
+
+    // Step 2: Peer is open — re-establish DataChannel
+    if (peer.open && (!conn || !conn.open)) {
+      if (isHost) {
+        // Host: peer.on('connection') is already listening
+        // But also try reconnecting signaling to be discoverable
+        console.log('Host waiting for guest to reconnect...');
+      } else {
+        // Guest: actively connect to host
         conn = peer.connect('NB-' + roomCode, { reliable: true });
         conn.on('open', () => setupConnection());
-        conn.on('error', () => tryReconnect());
+        conn.on('error', () => {});
+        conn.on('close', () => {});
       }
-    } else if (!peer || peer.destroyed) {
-      // Need full reconnect
-      tryReconnect();
+      // Schedule next attempt in case this one doesn't work
+      reconnectTimer = setTimeout(() => {
+        if (!conn || !conn.open) tryReconnect();
+      }, delay);
+    } else if (conn && conn.open) {
+      // Connection is actually open — verify with sync
+      hideReconnect();
+      startHeartbeat();
     } else {
-      tryReconnect();
+      // Unknown state — retry
+      reconnectTimer = setTimeout(() => tryReconnect(), delay);
     }
-  }, 3000);
+  }, delay);
+}
+
+function recreatePeer() {
+  // Rebuild peer with the same ID after iOS destroys it
+  const peerID = isHost ? 'NB-' + roomCode : 'NB-' + roomCode + '-G-' + Math.random().toString(36).substr(2, 4);
+  try { if (peer) peer.destroy(); } catch(e) {}
+  peer = new Peer(peerID, createPeerConfig());
+
+  peer.on('open', () => {
+    console.log('Peer recreated:', peerID);
+    if (isHost) {
+      // Re-listen for guest connections
+      peer.on('connection', (c) => {
+        conn = c;
+        setupConnection();
+      });
+    }
+    // Continue reconnection flow
+    tryReconnect();
+  });
+  peer.on('error', (err) => {
+    console.error('Recreate peer error:', err);
+    // If ID taken (host), wait and retry
+    if (err.type === 'unavailable-id') {
+      reconnectTimer = setTimeout(() => tryReconnect(), 3000);
+    } else {
+      reconnectTimer = setTimeout(() => tryReconnect(), 3000);
+    }
+  });
+  peer.on('disconnected', () => {
+    if (gamePhase !== 'title') tryReconnect();
+  });
 }
 
 function saveGameState() {
@@ -1572,14 +1666,36 @@ function saveGameState() {
   };
 }
 
-// ---- Visibility Change (Safari background killing) ----
+// ---- Visibility / Focus (Safari background killing) ----
 document.addEventListener('visibilitychange', () => {
-  if (!document.hidden && conn && !conn.open && gamePhase !== 'title') {
+  if (document.hidden || gamePhase === 'title') return;
+  // Tab became visible — check connection health
+  if (!conn || !conn.open) {
     tryReconnect();
+    return;
   }
+  // Connection reports open — verify with a probe ping
+  clearTimeout(healthCheckTimer);
+  const probeSent = Date.now();
+  lastPong = Date.now() - 20000; // Force stale so heartbeat catches it if no reply
+  send({ type: 'ping' });
+  // If no pong in 3 seconds, connection is dead
+  healthCheckTimer = setTimeout(() => {
+    if (lastPong < probeSent) {
+      console.log('Health probe failed — connection dead');
+      stopHeartbeat();
+      SFX.disconnected();
+      showReconnect();
+      tryReconnect();
+    } else {
+      // Connection alive — restart heartbeat
+      startHeartbeat();
+    }
+  }, 3000);
 });
 window.addEventListener('focus', () => {
-  if (conn && !conn.open && gamePhase !== 'title') {
+  if (gamePhase === 'title') return;
+  if (!conn || !conn.open) {
     tryReconnect();
   }
 });
