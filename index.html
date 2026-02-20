@@ -1,0 +1,2251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0a0e1a">
+<title>NeonBattle</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/peerjs/dist/peerjs.min.js"></script>
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --bg: #0a0e1a;
+  --cyan: #00f0ff;
+  --magenta: #ff00aa;
+  --green: #00ff88;
+  --red: #ff3344;
+  --orange: #ff8800;
+  --yellow: #ffdd00;
+  --blue: #0066ff;
+  --grid-cyan: rgba(0,240,255,0.3);
+  --grid-magenta: rgba(255,0,170,0.3);
+  --font-title: 'Orbitron', sans-serif;
+  --font-body: 'Rajdhani', sans-serif;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+html, body {
+  width: 100%; height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  background: var(--bg);
+  color: #fff;
+  font-family: var(--font-body);
+  -webkit-user-select: none; user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+body { padding-top: var(--safe-top); padding-bottom: var(--safe-bottom); }
+
+/* Screens */
+.screen { display: none; flex-direction: column; align-items: center; justify-content: center; width: 100%; height: 100%; position: absolute; top: 0; left: 0; }
+.screen.active { display: flex; }
+
+/* Background canvas */
+#bgCanvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
+.screen { z-index: 1; }
+
+/* Buttons */
+.btn {
+  font-family: var(--font-title);
+  font-size: 1rem;
+  font-weight: 700;
+  padding: 14px 32px;
+  border: 2px solid var(--cyan);
+  background: rgba(0,240,255,0.08);
+  color: var(--cyan);
+  border-radius: 8px;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  transition: all 0.2s;
+  touch-action: manipulation;
+  min-height: 48px;
+}
+.btn:active { background: rgba(0,240,255,0.25); transform: scale(0.96); }
+.btn.magenta { border-color: var(--magenta); color: var(--magenta); background: rgba(255,0,170,0.08); }
+.btn.magenta:active { background: rgba(255,0,170,0.25); }
+.btn.green { border-color: var(--green); color: var(--green); background: rgba(0,255,136,0.08); }
+.btn.green:active { background: rgba(0,255,136,0.25); }
+.btn.red { border-color: var(--red); color: var(--red); background: rgba(255,51,68,0.08); }
+.btn.red:active { background: rgba(255,51,68,0.25); }
+.btn.small { font-size: 0.75rem; padding: 8px 16px; }
+.btn:disabled { opacity: 0.3; pointer-events: none; }
+
+/* Title */
+.title {
+  font-family: var(--font-title);
+  font-size: 2.4rem;
+  font-weight: 900;
+  text-align: center;
+  animation: neonFlicker 3s infinite, titleReveal 1.2s ease-out both;
+}
+@keyframes neonFlicker {
+  0%, 19%, 21%, 23%, 25%, 54%, 56%, 100% {
+    text-shadow: 0 0 7px var(--cyan), 0 0 10px var(--cyan), 0 0 21px var(--cyan), 0 0 42px var(--cyan), 0 0 82px rgba(0,240,255,0.4);
+    color: #fff;
+  }
+  20%, 24%, 55% {
+    text-shadow: none;
+    color: rgba(255,255,255,0.6);
+  }
+}
+/* Title entrance animation */
+@keyframes titleReveal {
+  0% { transform: scale(0.6); opacity: 0; filter: blur(8px); }
+  60% { transform: scale(1.05); opacity: 1; filter: blur(0); }
+  100% { transform: scale(1); opacity: 1; filter: blur(0); }
+}
+/* Staggered button entrance */
+.title-btn-group { animation: btnSlideUp 0.8s ease-out 0.6s both; }
+.title-btn-secondary { animation: btnSlideUp 0.8s ease-out 1.0s both; }
+@keyframes btnSlideUp {
+  0% { transform: translateY(30px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+/* Button glow pulse */
+.btn.pulse-cyan {
+  animation: btnPulseCyan 2.5s ease-in-out infinite 1.4s;
+}
+.btn.pulse-magenta {
+  animation: btnPulseMagenta 2.5s ease-in-out infinite 1.8s;
+}
+@keyframes btnPulseCyan {
+  0%, 100% { box-shadow: 0 0 4px rgba(0,240,255,0.1); }
+  50% { box-shadow: 0 0 12px rgba(0,240,255,0.4), 0 0 24px rgba(0,240,255,0.15); }
+}
+@keyframes btnPulseMagenta {
+  0%, 100% { box-shadow: 0 0 4px rgba(255,0,170,0.1); }
+  50% { box-shadow: 0 0 12px rgba(255,0,170,0.4), 0 0 24px rgba(255,0,170,0.15); }
+}
+/* Production credit */
+.production-credit {
+  font-family: var(--font-title);
+  font-weight: 700;
+  font-size: 0.7rem;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  text-align: center;
+  animation: productionGlow 3s ease-in-out infinite, productionReveal 1.5s ease-out 1.6s both;
+}
+.production-credit::before {
+  content: '';
+  display: block;
+  width: 80px;
+  height: 1px;
+  margin: 0 auto 10px;
+  background: linear-gradient(90deg, transparent, var(--magenta), var(--cyan), transparent);
+  animation: lineGlow 3s ease-in-out infinite;
+}
+@keyframes productionReveal {
+  0% { opacity: 0; transform: translateY(10px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+@keyframes productionGlow {
+  0%, 100% {
+    color: var(--magenta);
+    text-shadow: 0 0 7px rgba(255,0,170,0.6), 0 0 15px rgba(255,0,170,0.3), 0 0 30px rgba(255,0,170,0.15);
+  }
+  50% {
+    color: var(--cyan);
+    text-shadow: 0 0 7px rgba(0,240,255,0.6), 0 0 15px rgba(0,240,255,0.3), 0 0 30px rgba(0,240,255,0.15);
+  }
+}
+@keyframes lineGlow {
+  0%, 100% { opacity: 0.4; width: 80px; }
+  50% { opacity: 0.9; width: 120px; }
+}
+
+/* Room code display */
+.room-code {
+  font-family: var(--font-title);
+  font-size: 3.5rem;
+  font-weight: 900;
+  letter-spacing: 16px;
+  color: var(--cyan);
+  text-shadow: 0 0 10px var(--cyan), 0 0 30px rgba(0,240,255,0.5);
+  padding: 16px;
+}
+
+/* Overlay */
+.overlay {
+  display: none;
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(10,14,26,0.92);
+  z-index: 100;
+  flex-direction: column; align-items: center; justify-content: center;
+  gap: 16px;
+}
+.overlay.active { display: flex; }
+.overlay-text { font-family: var(--font-title); font-size: 1.2rem; color: var(--cyan); text-align: center; }
+
+/* Spinner */
+.spinner {
+  width: 48px; height: 48px;
+  border: 3px solid rgba(0,240,255,0.2);
+  border-top-color: var(--cyan);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Custom keyboard */
+.keyboard {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+  max-width: 350px;
+  width: 90%;
+  margin: 16px auto;
+}
+.key-btn {
+  font-family: var(--font-title);
+  font-size: 1.1rem;
+  font-weight: 700;
+  padding: 12px 0;
+  border: 1px solid rgba(0,240,255,0.4);
+  background: rgba(0,240,255,0.06);
+  color: var(--cyan);
+  border-radius: 6px;
+  cursor: pointer;
+  touch-action: manipulation;
+  text-align: center;
+  min-height: 44px;
+}
+.key-btn:active { background: rgba(0,240,255,0.3); }
+.key-btn.wide { grid-column: span 2; }
+
+/* Join code display */
+.join-code-display {
+  font-family: var(--font-title);
+  font-size: 2.5rem;
+  font-weight: 900;
+  letter-spacing: 12px;
+  color: var(--cyan);
+  text-shadow: 0 0 10px var(--cyan);
+  min-height: 3.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+.join-code-display .char {
+  display: inline-block;
+  width: 40px;
+  text-align: center;
+  border-bottom: 3px solid rgba(0,240,255,0.3);
+  padding-bottom: 4px;
+}
+.join-code-display .char.filled { border-bottom-color: var(--cyan); }
+
+/* Ship placement */
+.placement-container { width: 100%; display: flex; flex-direction: column; align-items: center; padding: 8px; gap: 6px; }
+.fleet-bar {
+  display: flex; gap: 6px; flex-wrap: wrap; justify-content: center;
+  padding: 4px 8px;
+}
+.fleet-ship {
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 6px 10px;
+  border: 1px solid var(--cyan);
+  border-radius: 4px;
+  background: rgba(0,240,255,0.06);
+  color: var(--cyan);
+  cursor: pointer;
+  touch-action: manipulation;
+  white-space: nowrap;
+}
+.fleet-ship.selected { background: rgba(0,240,255,0.3); box-shadow: 0 0 10px rgba(0,240,255,0.3); }
+.fleet-ship.placed { opacity: 0.3; border-style: dashed; }
+.placement-actions { display: flex; gap: 8px; }
+
+/* Battle layout */
+.battle-container {
+  width: 100%; height: 100%;
+  display: flex; flex-direction: column;
+  padding: 2px 4px;
+}
+.battle-status {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 2px 8px;
+  font-family: var(--font-title);
+  font-size: 0.65rem;
+  flex-shrink: 0;
+}
+.turn-banner {
+  font-family: var(--font-title);
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-align: center;
+  padding: 2px 0;
+  letter-spacing: 2px;
+  flex-shrink: 0;
+  transition: all 0.3s;
+}
+.turn-banner.your-turn { color: var(--green); text-shadow: 0 0 10px rgba(0,255,136,0.5); }
+.turn-banner.opponent-turn { color: var(--red); text-shadow: 0 0 10px rgba(255,51,68,0.3); }
+.grid-label {
+  font-family: var(--font-title);
+  font-size: 0.55rem;
+  letter-spacing: 2px;
+  padding: 1px 8px;
+  opacity: 0.6;
+  flex-shrink: 0;
+}
+.grid-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+.enemy-grid-wrapper { flex: none; }
+.my-grid-wrapper { flex: none; }
+
+/* Fire button */
+.fire-btn-container {
+  display: flex; justify-content: center; padding: 1px 0;
+  flex-shrink: 0;
+}
+.fire-btn {
+  font-family: var(--font-title);
+  font-size: 0.8rem;
+  font-weight: 900;
+  padding: 5px 36px;
+  border: 2px solid var(--red);
+  background: rgba(255,51,68,0.15);
+  color: var(--red);
+  border-radius: 8px;
+  letter-spacing: 3px;
+  cursor: pointer;
+  touch-action: manipulation;
+  text-shadow: 0 0 8px rgba(255,51,68,0.5);
+  transition: all 0.2s;
+  min-height: 32px;
+}
+.fire-btn:active { background: rgba(255,51,68,0.4); transform: scale(0.95); }
+.fire-btn:disabled { opacity: 0.2; pointer-events: none; }
+
+/* Emoji bar */
+.emoji-bar-toggle {
+  position: fixed;
+  bottom: calc(8px + var(--safe-bottom));
+  right: 8px;
+  z-index: 50;
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  border: 1px solid rgba(0,240,255,0.4);
+  background: rgba(10,14,26,0.9);
+  color: var(--cyan);
+  font-size: 1.2rem;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.emoji-tray {
+  display: none;
+  position: fixed;
+  bottom: calc(56px + var(--safe-bottom));
+  right: 8px;
+  z-index: 50;
+  background: rgba(10,14,26,0.95);
+  border: 1px solid rgba(0,240,255,0.3);
+  border-radius: 12px;
+  padding: 8px;
+  gap: 4px;
+  flex-wrap: wrap;
+  max-width: 200px;
+}
+.emoji-tray.open { display: flex; }
+.emoji-tray button {
+  font-size: 1.4rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 6px;
+  touch-action: manipulation;
+}
+.emoji-tray button:active { background: rgba(255,255,255,0.1); }
+
+/* Emoji popup */
+.emoji-popup {
+  position: fixed;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%) scale(0);
+  font-size: 5rem;
+  z-index: 200;
+  pointer-events: none;
+  transition: none;
+}
+.emoji-popup.show {
+  animation: emojiBounce 2s forwards;
+}
+@keyframes emojiBounce {
+  0% { transform: translate(-50%, -50%) scale(0); opacity: 1; }
+  15% { transform: translate(-50%, -50%) scale(1.3); opacity: 1; }
+  30% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  70% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+}
+
+/* Sound toggle */
+.sound-toggle {
+  position: fixed;
+  top: calc(8px + var(--safe-top));
+  right: 8px;
+  z-index: 50;
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.2);
+  background: rgba(10,14,26,0.8);
+  color: #fff;
+  font-size: 1rem;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+/* Game over */
+.game-over-container {
+  display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 24px;
+}
+.game-over-title {
+  font-family: var(--font-title);
+  font-size: 2.5rem;
+  font-weight: 900;
+}
+.game-over-title.victory {
+  color: var(--yellow);
+  text-shadow: 0 0 20px rgba(255,221,0,0.6), 0 0 60px rgba(255,221,0,0.3);
+  animation: victoryPulse 2s ease-in-out infinite, titleReveal 0.8s ease-out both;
+}
+.game-over-title.defeat {
+  color: var(--red);
+  text-shadow: 0 0 20px rgba(255,51,68,0.6);
+  animation: defeatShake 0.6s ease-out, titleReveal 0.8s ease-out both;
+}
+@keyframes victoryPulse {
+  0%, 100% { text-shadow: 0 0 20px rgba(255,221,0,0.6), 0 0 60px rgba(255,221,0,0.3); transform: scale(1); }
+  50% { text-shadow: 0 0 30px rgba(255,221,0,0.8), 0 0 80px rgba(255,221,0,0.4), 0 0 120px rgba(255,221,0,0.2); transform: scale(1.03); }
+}
+@keyframes defeatShake {
+  0%, 100% { transform: translateX(0); }
+  15% { transform: translateX(-6px); }
+  30% { transform: translateX(5px); }
+  45% { transform: translateX(-4px); }
+  60% { transform: translateX(3px); }
+  75% { transform: translateX(-2px); }
+}
+.stats-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+  font-family: var(--font-body); font-size: 1rem;
+}
+.stat-label { color: rgba(255,255,255,0.6); text-align: right; padding-right: 8px; }
+.stat-value { color: var(--cyan); font-weight: 700; }
+.emoji-reactions {
+  display: flex; gap: 6px; margin-top: 8px;
+}
+.emoji-reactions button {
+  font-size: 1.6rem;
+  background: none;
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 8px;
+  padding: 6px 10px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.emoji-reactions button:active { background: rgba(255,255,255,0.1); }
+
+/* How to play */
+.how-to-play {
+  width: 90%; max-width: 400px;
+  max-height: 70vh;
+  overflow-y: auto;
+  background: rgba(10,14,26,0.95);
+  border: 1px solid rgba(0,240,255,0.3);
+  border-radius: 12px;
+  padding: 20px;
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: rgba(255,255,255,0.85);
+}
+.how-to-play h2 { font-family: var(--font-title); font-size: 1.2rem; color: var(--cyan); margin-bottom: 12px; }
+.how-to-play h3 { font-family: var(--font-title); font-size: 0.85rem; color: var(--magenta); margin: 12px 0 4px; }
+.how-to-play p { margin-bottom: 8px; }
+
+/* Reconnecting overlay */
+.reconnect-overlay {
+  display: none;
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(10,14,26,0.95);
+  z-index: 150;
+  flex-direction: column; align-items: center; justify-content: center; gap: 16px;
+}
+.reconnect-overlay.active { display: flex; }
+
+/* Ship sunk announcement */
+.sunk-announce {
+  position: fixed;
+  top: 30%;
+  left: 50%;
+  transform: translateX(-50%) scale(0);
+  font-family: var(--font-title);
+  font-size: 1rem;
+  font-weight: 700;
+  padding: 12px 24px;
+  border-radius: 8px;
+  z-index: 90;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.sunk-announce.show {
+  animation: sunkBounce 2.5s forwards;
+}
+@keyframes sunkBounce {
+  0% { transform: translateX(-50%) scale(0); opacity: 1; }
+  15% { transform: translateX(-50%) scale(1.1); opacity: 1; }
+  25% { transform: translateX(-50%) scale(1); opacity: 1; }
+  75% { transform: translateX(-50%) scale(1); opacity: 1; }
+  100% { transform: translateX(-50%) scale(0.8); opacity: 0; }
+}
+.sunk-announce.enemy-sunk { color: var(--green); background: rgba(0,255,136,0.15); border: 1px solid var(--green); }
+.sunk-announce.my-sunk { color: var(--red); background: rgba(255,51,68,0.15); border: 1px solid var(--red); }
+
+/* Placement info text */
+.placement-info {
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  color: rgba(255,255,255,0.5);
+  text-align: center;
+  min-height: 1.2em;
+}
+.opponent-status {
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  text-align: center;
+  padding: 4px 0;
+  min-height: 1.4em;
+}
+</style>
+</head>
+<body>
+
+<canvas id="bgCanvas"></canvas>
+<button class="sound-toggle" id="soundToggle">🔊</button>
+
+<!-- TITLE SCREEN -->
+<div class="screen active" id="titleScreen">
+  <div style="display:flex;flex-direction:column;align-items:center;gap:24px;">
+    <div class="title">NEON<br>BATTLE</div>
+    <p style="font-size:0.85rem;opacity:0.5;margin-top:-8px;letter-spacing:2px;">P2P BATTLESHIP</p>
+    <div class="title-btn-group" style="display:flex;flex-direction:column;gap:12px;margin-top:16px;">
+      <button class="btn pulse-cyan" onclick="G.showScreen('createScreen')">CREATE GAME</button>
+      <button class="btn magenta pulse-magenta" onclick="G.showScreen('joinScreen')">JOIN GAME</button>
+    </div>
+    <button class="btn small title-btn-secondary" style="margin-top:24px;opacity:0.6;" onclick="G.showHowToPlay()">HOW TO PLAY</button>
+    <div class="production-credit" style="margin-top:48px;">AN OZAN SELCUK PRODUCTION</div>
+  </div>
+</div>
+
+<!-- HOW TO PLAY OVERLAY -->
+<div class="overlay" id="howToPlayOverlay">
+  <div class="how-to-play">
+    <h2>HOW TO PLAY</h2>
+    <h3>Setup</h3>
+    <p>One player creates a game and shares the 4-letter room code. The other player joins using the code.</p>
+    <h3>Place Ships</h3>
+    <p>Tap a ship from the fleet list, then tap the grid to place it. Tap the rotate button to change orientation. Place all 5 ships and hit READY.</p>
+    <h3>Battle</h3>
+    <p>Take turns firing at the enemy grid. Tap a cell to target, then tap FIRE. Hits glow red, misses show blue splashes. Sink all 5 enemy ships to win!</p>
+    <h3>Fleet</h3>
+    <p>Carrier (5) &bull; Battleship (4) &bull; Cruiser (3) &bull; Submarine (3) &bull; Destroyer (2)</p>
+  </div>
+  <button class="btn small" style="margin-top:12px;" onclick="G.hideHowToPlay()">CLOSE</button>
+</div>
+
+<!-- CREATE GAME SCREEN -->
+<div class="screen" id="createScreen">
+  <div style="display:flex;flex-direction:column;align-items:center;gap:16px;">
+    <p style="font-family:var(--font-title);font-size:0.85rem;letter-spacing:2px;opacity:0.6;">YOUR ROOM CODE</p>
+    <div class="room-code" id="roomCodeDisplay">----</div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn small" onclick="G.copyCode()">COPY CODE</button>
+      <button class="btn small magenta" onclick="G.shareCode()">SHARE</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;margin-top:16px;">
+      <div class="spinner"></div>
+      <span style="font-size:0.9rem;opacity:0.6;">Waiting for opponent...</span>
+    </div>
+    <button class="btn small red" style="margin-top:24px;" onclick="G.backToTitle()">BACK</button>
+  </div>
+</div>
+
+<!-- JOIN GAME SCREEN -->
+<div class="screen" id="joinScreen">
+  <div style="display:flex;flex-direction:column;align-items:center;gap:12px;">
+    <p style="font-family:var(--font-title);font-size:0.85rem;letter-spacing:2px;opacity:0.6;">ENTER ROOM CODE</p>
+    <div class="join-code-display" id="joinCodeDisplay">
+      <span class="char">_</span><span class="char">_</span><span class="char">_</span><span class="char">_</span>
+    </div>
+    <div class="keyboard" id="joinKeyboard"></div>
+    <button class="btn green" id="connectBtn" disabled onclick="G.connectToHost()">CONNECT</button>
+    <div id="joinStatus" style="font-size:0.85rem;min-height:1.2em;color:var(--cyan);"></div>
+    <button class="btn small red" style="margin-top:8px;" onclick="G.backToTitle()">BACK</button>
+  </div>
+</div>
+
+<!-- SHIP PLACEMENT SCREEN -->
+<div class="screen" id="placementScreen">
+  <div class="placement-container">
+    <p style="font-family:var(--font-title);font-size:0.8rem;letter-spacing:2px;opacity:0.6;">PLACE YOUR FLEET</p>
+    <div class="fleet-bar" id="fleetBar"></div>
+    <div class="placement-info" id="placementInfo">Select a ship to place</div>
+    <canvas id="placementCanvas"></canvas>
+    <div class="placement-actions">
+      <button class="btn small" onclick="G.rotateShip()">ROTATE</button>
+      <button class="btn small" onclick="G.randomPlacement()">RANDOM</button>
+      <button class="btn small green" id="readyBtn" disabled onclick="G.lockReady()">READY</button>
+    </div>
+    <div class="opponent-status" id="opponentStatus" style="color:rgba(255,255,255,0.5);">Waiting for opponent...</div>
+  </div>
+</div>
+
+<!-- BATTLE SCREEN -->
+<div class="screen" id="battleScreen">
+  <div class="battle-container">
+    <div class="battle-status">
+      <span id="battlePlayerLabel" style="color:var(--cyan);">YOU</span>
+      <span id="battleConnectionStatus" style="color:var(--green);font-size:0.65rem;">CONNECTED</span>
+    </div>
+    <div class="turn-banner" id="turnBanner">WAITING...</div>
+    <div class="grid-label">ENEMY WATERS</div>
+    <div class="grid-wrapper enemy-grid-wrapper">
+      <canvas id="enemyCanvas"></canvas>
+    </div>
+    <div class="fire-btn-container">
+      <button class="fire-btn" id="fireBtn" disabled onclick="G.fireShot()">FIRE</button>
+    </div>
+    <div class="grid-label">YOUR FLEET</div>
+    <div class="grid-wrapper my-grid-wrapper">
+      <canvas id="myCanvas"></canvas>
+    </div>
+  </div>
+  <div class="emoji-bar-toggle" id="emojiToggle" onclick="G.toggleEmoji()">💬</div>
+  <div class="emoji-tray" id="emojiTray"></div>
+</div>
+
+<!-- GAME OVER SCREEN -->
+<div class="screen" id="gameOverScreen">
+  <div class="game-over-container">
+    <div class="game-over-title" id="gameOverTitle">VICTORY!</div>
+    <div class="stats-grid" id="gameOverStats"></div>
+    <div class="emoji-reactions" id="gameOverEmojis"></div>
+    <div style="display:flex;gap:8px;margin-top:16px;">
+      <button class="btn green" onclick="G.requestRematch()">REMATCH</button>
+      <button class="btn" onclick="G.backToTitle()">NEW GAME</button>
+    </div>
+    <div id="rematchStatus" style="font-size:0.85rem;min-height:1.2em;color:var(--cyan);"></div>
+  </div>
+</div>
+
+<!-- RECONNECTING OVERLAY -->
+<div class="reconnect-overlay" id="reconnectOverlay">
+  <div class="spinner"></div>
+  <div class="overlay-text">CONNECTION LOST</div>
+  <div style="font-size:0.85rem;opacity:0.6;" id="reconnectMsg">Reconnecting...</div>
+</div>
+
+<!-- SUNK ANNOUNCEMENT -->
+<div class="sunk-announce" id="sunkAnnounce"></div>
+
+<!-- EMOJI POPUP -->
+<div class="emoji-popup" id="emojiPopup"></div>
+
+<script>
+'use strict';
+
+// =========================================================
+// GAME ENGINE
+// =========================================================
+const G = {};
+
+// ---- Constants ----
+const GRID = 10;
+const SHIPS = [
+  { name: 'Carrier', size: 5 },
+  { name: 'Battleship', size: 4 },
+  { name: 'Cruiser', size: 3 },
+  { name: 'Submarine', size: 3 },
+  { name: 'Destroyer', size: 2 }
+];
+const EMOJIS = ['👏','🔥','😂','😤','💪','🎉','😱','💀','🎯','💣'];
+const LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; // no I or O to avoid ambiguity
+
+// ---- State ----
+let peer = null;
+let conn = null;
+let isHost = false;
+let roomCode = '';
+let joinCode = '';
+let gamePhase = 'title'; // title, waiting, placing, battle, over
+let myBoard = []; // 10x10: 0=empty, ship index+1 for ship
+let myHits = []; // 10x10: 0=none, 1=miss, 2=hit
+let enemyBoard = []; // 10x10: 0=unknown, 1=miss, 2=hit, 3=sunk
+let enemySunkShips = []; // revealed sunk ship data
+let myShips = []; // { name, size, cells: [{r,c}], hits: 0 }
+let placedShips = []; // during placement
+let selectedShipIdx = -1;
+let shipOrientation = 'h'; // h or v
+let ghostCells = [];
+let isMyTurn = false;
+let targetCell = null; // {r, c} selected target on enemy grid
+let myReady = false;
+let opponentReady = false;
+let shotsFired = 0;
+let shotsHit = 0;
+let turnCount = 0;
+let mySunkCount = 0;
+let enemySunkCount = 0;
+let reconnectAttempts = 0;
+let reconnectTimer = null;
+let soundEnabled = true;
+let rematchSent = false;
+let rematchReceived = false;
+
+// Save/restore state for reconnection
+let savedGameState = null;
+
+// ---- Audio Context ----
+let audioCtx = null;
+function getAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+
+// ---- Sound Effects ----
+const SFX = {
+  click() {
+    if (!soundEnabled) return;
+    const ctx = getAudio(); const o = ctx.createOscillator(); const g = ctx.createGain();
+    o.type = 'sine'; o.frequency.value = 800;
+    g.gain.setValueAtTime(0.15, ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
+    o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime + 0.08);
+  },
+  connected() {
+    if (!soundEnabled) return;
+    const ctx = getAudio();
+    [523, 659].forEach((f, i) => {
+      const o = ctx.createOscillator(); const g = ctx.createGain();
+      o.type = 'sine'; o.frequency.value = f;
+      g.gain.setValueAtTime(0.2, ctx.currentTime + i * 0.15);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.15 + 0.3);
+      o.connect(g); g.connect(ctx.destination); o.start(ctx.currentTime + i * 0.15); o.stop(ctx.currentTime + i * 0.15 + 0.3);
+    });
+  },
+  disconnected() {
+    if (!soundEnabled) return;
+    const ctx = getAudio();
+    [400, 300].forEach((f, i) => {
+      const o = ctx.createOscillator(); const g = ctx.createGain();
+      o.type = 'sawtooth'; o.frequency.value = f;
+      g.gain.setValueAtTime(0.15, ctx.currentTime + i * 0.2);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.2 + 0.3);
+      o.connect(g); g.connect(ctx.destination); o.start(ctx.currentTime + i * 0.2); o.stop(ctx.currentTime + i * 0.2 + 0.3);
+    });
+  },
+  place() {
+    if (!soundEnabled) return;
+    const ctx = getAudio(); const o = ctx.createOscillator(); const g = ctx.createGain();
+    o.type = 'square'; o.frequency.value = 200;
+    g.gain.setValueAtTime(0.12, ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+    o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime + 0.15);
+  },
+  rotate() {
+    if (!soundEnabled) return;
+    const ctx = getAudio(); const o = ctx.createOscillator(); const g = ctx.createGain();
+    o.type = 'triangle'; o.frequency.setValueAtTime(300, ctx.currentTime); o.frequency.linearRampToValueAtTime(600, ctx.currentTime + 0.1);
+    g.gain.setValueAtTime(0.1, ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
+    o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime + 0.12);
+  },
+  error() {
+    if (!soundEnabled) return;
+    const ctx = getAudio(); const o = ctx.createOscillator(); const g = ctx.createGain();
+    o.type = 'sawtooth'; o.frequency.value = 150;
+    g.gain.setValueAtTime(0.15, ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
+    o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime + 0.2);
+  },
+  ready() {
+    if (!soundEnabled) return;
+    const ctx = getAudio();
+    [440, 554, 659].forEach((f, i) => {
+      const o = ctx.createOscillator(); const g = ctx.createGain();
+      o.type = 'sine'; o.frequency.value = f;
+      g.gain.setValueAtTime(0.15, ctx.currentTime + i * 0.1);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.1 + 0.25);
+      o.connect(g); g.connect(ctx.destination); o.start(ctx.currentTime + i * 0.1); o.stop(ctx.currentTime + i * 0.1 + 0.25);
+    });
+  },
+  sonar() {
+    if (!soundEnabled) return;
+    const ctx = getAudio(); const o = ctx.createOscillator(); const g = ctx.createGain();
+    o.type = 'sine'; o.frequency.setValueAtTime(1200, ctx.currentTime); o.frequency.exponentialRampToValueAtTime(600, ctx.currentTime + 0.3);
+    g.gain.setValueAtTime(0.12, ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+    o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime + 0.4);
+  },
+  tick() {
+    if (!soundEnabled) return;
+    const ctx = getAudio(); const o = ctx.createOscillator(); const g = ctx.createGain();
+    o.type = 'sine'; o.frequency.value = 1000;
+    g.gain.setValueAtTime(0.04, ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.03);
+    o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime + 0.03);
+  },
+  fire() {
+    if (!soundEnabled) return;
+    const ctx = getAudio();
+    // cannon boom
+    const buf = ctx.createBuffer(1, ctx.sampleRate * 0.4, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < data.length; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ctx.sampleRate * 0.08));
+    }
+    const src = ctx.createBufferSource(); src.buffer = buf;
+    const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 400;
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.3, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+    src.connect(f); f.connect(g); g.connect(ctx.destination); src.start();
+  },
+  hitEnemy() {
+    if (!soundEnabled) return;
+    const ctx = getAudio();
+    const buf = ctx.createBuffer(1, ctx.sampleRate * 0.5, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < data.length; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ctx.sampleRate * 0.1));
+    }
+    const src = ctx.createBufferSource(); src.buffer = buf;
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.25, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+    src.connect(g); g.connect(ctx.destination); src.start();
+    // crackle
+    const o = ctx.createOscillator(); const g2 = ctx.createGain();
+    o.type = 'sawtooth'; o.frequency.value = 100;
+    g2.gain.setValueAtTime(0.1, ctx.currentTime + 0.05);
+    g2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+    o.connect(g2); g2.connect(ctx.destination); o.start(ctx.currentTime + 0.05); o.stop(ctx.currentTime + 0.35);
+  },
+  missEnemy() {
+    if (!soundEnabled) return;
+    const ctx = getAudio();
+    const buf = ctx.createBuffer(1, ctx.sampleRate * 0.3, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < data.length; i++) {
+      const t = i / ctx.sampleRate;
+      data[i] = Math.sin(2 * Math.PI * 200 * t) * 0.1 * Math.exp(-t * 8) + (Math.random() * 2 - 1) * 0.05 * Math.exp(-t * 15);
+    }
+    const src = ctx.createBufferSource(); src.buffer = buf;
+    const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 600;
+    const g = ctx.createGain(); g.gain.value = 0.3;
+    src.connect(f); f.connect(g); g.connect(ctx.destination); src.start();
+  },
+  incoming() {
+    if (!soundEnabled) return;
+    const ctx = getAudio(); const o = ctx.createOscillator(); const g = ctx.createGain();
+    o.type = 'sine'; o.frequency.setValueAtTime(2000, ctx.currentTime); o.frequency.exponentialRampToValueAtTime(200, ctx.currentTime + 0.3);
+    g.gain.setValueAtTime(0.1, ctx.currentTime); g.gain.linearRampToValueAtTime(0.2, ctx.currentTime + 0.25);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+    o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime + 0.35);
+  },
+  hitMe() {
+    if (!soundEnabled) return;
+    const ctx = getAudio();
+    const buf = ctx.createBuffer(1, ctx.sampleRate * 0.4, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < data.length; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ctx.sampleRate * 0.07));
+    }
+    const src = ctx.createBufferSource(); src.buffer = buf;
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.3, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+    src.connect(g); g.connect(ctx.destination); src.start();
+    // alarm tone
+    const o = ctx.createOscillator(); const g2 = ctx.createGain();
+    o.type = 'square'; o.frequency.value = 180;
+    g2.gain.setValueAtTime(0.08, ctx.currentTime);
+    g2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+    o.connect(g2); g2.connect(ctx.destination); o.start(); o.stop(ctx.currentTime + 0.4);
+  },
+  sunkEnemy() {
+    if (!soundEnabled) return;
+    const ctx = getAudio();
+    // metal groan
+    const o1 = ctx.createOscillator(); const g1 = ctx.createGain();
+    o1.type = 'sawtooth'; o1.frequency.setValueAtTime(150, ctx.currentTime); o1.frequency.exponentialRampToValueAtTime(60, ctx.currentTime + 0.8);
+    g1.gain.setValueAtTime(0.12, ctx.currentTime); g1.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8);
+    o1.connect(g1); g1.connect(ctx.destination); o1.start(); o1.stop(ctx.currentTime + 0.8);
+    // celebration chime
+    setTimeout(() => {
+      [659, 784, 988].forEach((f, i) => {
+        const o = ctx.createOscillator(); const g = ctx.createGain();
+        o.type = 'sine'; o.frequency.value = f;
+        g.gain.setValueAtTime(0.15, ctx.currentTime + i * 0.12);
+        g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.12 + 0.3);
+        o.connect(g); g.connect(ctx.destination); o.start(ctx.currentTime + i * 0.12); o.stop(ctx.currentTime + i * 0.12 + 0.3);
+      });
+    }, 600);
+  },
+  sunkMine() {
+    if (!soundEnabled) return;
+    const ctx = getAudio();
+    const o = ctx.createOscillator(); const g = ctx.createGain();
+    o.type = 'sawtooth'; o.frequency.setValueAtTime(200, ctx.currentTime); o.frequency.exponentialRampToValueAtTime(40, ctx.currentTime + 1);
+    g.gain.setValueAtTime(0.15, ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1);
+    o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime + 1);
+  },
+  victory() {
+    if (!soundEnabled) return;
+    const ctx = getAudio();
+    [523, 659, 784, 1047].forEach((f, i) => {
+      const o = ctx.createOscillator(); const g = ctx.createGain();
+      o.type = 'sine'; o.frequency.value = f;
+      g.gain.setValueAtTime(0.18, ctx.currentTime + i * 0.15);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.15 + 0.5);
+      o.connect(g); g.connect(ctx.destination); o.start(ctx.currentTime + i * 0.15); o.stop(ctx.currentTime + i * 0.15 + 0.5);
+    });
+  },
+  defeat() {
+    if (!soundEnabled) return;
+    const ctx = getAudio();
+    [300, 250, 200, 150].forEach((f, i) => {
+      const o = ctx.createOscillator(); const g = ctx.createGain();
+      o.type = 'sawtooth'; o.frequency.value = f;
+      g.gain.setValueAtTime(0.12, ctx.currentTime + i * 0.2);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.2 + 0.4);
+      o.connect(g); g.connect(ctx.destination); o.start(ctx.currentTime + i * 0.2); o.stop(ctx.currentTime + i * 0.2 + 0.4);
+    });
+  },
+  emoji() {
+    if (!soundEnabled) return;
+    const ctx = getAudio(); const o = ctx.createOscillator(); const g = ctx.createGain();
+    o.type = 'sine'; o.frequency.setValueAtTime(600, ctx.currentTime); o.frequency.exponentialRampToValueAtTime(1200, ctx.currentTime + 0.08);
+    o.frequency.exponentialRampToValueAtTime(800, ctx.currentTime + 0.15);
+    g.gain.setValueAtTime(0.12, ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
+    o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime + 0.2);
+  }
+};
+
+// ---- Background Animation ----
+const bgCanvas = document.getElementById('bgCanvas');
+const bgCtx = bgCanvas.getContext('2d');
+let bgW, bgH, bgTime = 0;
+
+function resizeBg() {
+  bgW = bgCanvas.width = window.innerWidth;
+  bgH = bgCanvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resizeBg);
+resizeBg();
+
+// Star field (generated once)
+let bgStars = null;
+function initStars() {
+  bgStars = [];
+  for (let i = 0; i < 60; i++) {
+    bgStars.push({
+      x: Math.random() * bgW,
+      y: Math.random() * bgH * 0.6,
+      size: Math.random() * 1.2 + 0.3,
+      twinkleSpeed: Math.random() * 2 + 1,
+      twinkleOffset: Math.random() * Math.PI * 2,
+      brightness: Math.random() * 0.3 + 0.1,
+    });
+  }
+}
+
+function drawBg(dt) {
+  bgTime += dt;
+  bgCtx.fillStyle = '#0a0e1a';
+  bgCtx.fillRect(0, 0, bgW, bgH);
+
+  // Stars
+  if (!bgStars) initStars();
+  for (const s of bgStars) {
+    const alpha = s.brightness + Math.sin(bgTime * s.twinkleSpeed + s.twinkleOffset) * s.brightness * 0.6;
+    bgCtx.globalAlpha = Math.max(0.03, alpha);
+    bgCtx.fillStyle = '#ffffff';
+    bgCtx.beginPath();
+    bgCtx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+    bgCtx.fill();
+  }
+
+  // Horizon glow
+  bgCtx.globalAlpha = 1;
+  const grad = bgCtx.createLinearGradient(0, bgH * 0.7, 0, bgH);
+  grad.addColorStop(0, 'transparent');
+  grad.addColorStop(0.5, 'rgba(0,240,255,0.015)');
+  grad.addColorStop(1, 'rgba(0,240,255,0.03)');
+  bgCtx.fillStyle = grad;
+  bgCtx.fillRect(0, bgH * 0.7, bgW, bgH * 0.3);
+
+  // Wave ripples (brighter, with varying color)
+  bgCtx.save();
+  for (let i = 0; i < 6; i++) {
+    const y = bgH * 0.25 + i * bgH * 0.13;
+    const amp = 6 + i * 4;
+    const freq = 0.004 + i * 0.0012;
+    const speed = 0.25 + i * 0.08;
+    bgCtx.globalAlpha = 0.03 + i * 0.012;
+    bgCtx.beginPath();
+    for (let x = 0; x < bgW; x += 3) {
+      const dy = Math.sin(x * freq + bgTime * speed) * amp
+               + Math.sin(x * freq * 2.3 + bgTime * speed * 1.3) * amp * 0.4
+               + Math.sin(x * freq * 0.7 - bgTime * speed * 0.5) * amp * 0.2;
+      if (x === 0) bgCtx.moveTo(x, y + dy);
+      else bgCtx.lineTo(x, y + dy);
+    }
+    // Alternate cyan and magenta tints
+    bgCtx.strokeStyle = i % 3 === 2 ? 'rgba(255,0,170,0.8)' : '#00f0ff';
+    bgCtx.lineWidth = 1 + i * 0.2;
+    bgCtx.stroke();
+  }
+  bgCtx.restore();
+}
+
+// ---- Particle System ----
+const particles = [];
+const MAX_PARTICLES = 150;
+
+function spawnParticle(x, y, vx, vy, color, life, size) {
+  if (particles.length >= MAX_PARTICLES) {
+    // Reuse oldest
+    const p = particles.shift();
+    Object.assign(p, { x, y, vx, vy, color, life, maxLife: life, size, active: true });
+    particles.push(p);
+  } else {
+    particles.push({ x, y, vx, vy, color, life, maxLife: life, size, active: true });
+  }
+}
+
+function updateParticles(dt) {
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    if (!p.active) { particles.splice(i, 1); continue; }
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    p.vy += 80 * dt; // gravity
+    p.life -= dt;
+    if (p.life <= 0) { particles.splice(i, 1); }
+  }
+}
+
+function drawParticles(ctx, offsetX, offsetY) {
+  for (const p of particles) {
+    if (!p.active) continue;
+    const alpha = Math.max(0, p.life / p.maxLife);
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x - offsetX, p.y - offsetY, p.size * alpha, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+// ---- Grid Rendering ----
+function initBoard() {
+  const b = [];
+  for (let r = 0; r < GRID; r++) { b[r] = []; for (let c = 0; c < GRID; c++) b[r][c] = 0; }
+  return b;
+}
+
+function getGridMetrics(canvas) {
+  const w = canvas._logicW || (canvas.width / (window.devicePixelRatio || 1));
+  const h = canvas._logicH || (canvas.height / (window.devicePixelRatio || 1));
+  const cellSize = Math.floor(Math.min(w, h) / (GRID + 1));
+  const offsetX = Math.floor((w - cellSize * GRID) / 2);
+  const offsetY = Math.floor((h - cellSize * GRID) / 2);
+  return { cellSize, offsetX, offsetY };
+}
+
+function drawGrid(ctx, canvas, board, hits, isEnemy, ships, sunkShips, target, ghost, ghostValid) {
+  const { cellSize, offsetX, offsetY } = getGridMetrics(canvas);
+  const borderColor = isEnemy ? 'rgba(255,0,170,0.25)' : 'rgba(0,240,255,0.25)';
+  const borderGlow = isEnemy ? 'rgba(255,0,170,0.08)' : 'rgba(0,240,255,0.08)';
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Grid background
+  ctx.fillStyle = 'rgba(10,14,26,0.6)';
+  ctx.fillRect(offsetX, offsetY, cellSize * GRID, cellSize * GRID);
+
+  // Draw cells
+  for (let r = 0; r < GRID; r++) {
+    for (let c = 0; c < GRID; c++) {
+      const x = offsetX + c * cellSize;
+      const y = offsetY + r * cellSize;
+
+      // Cell border
+      ctx.strokeStyle = borderColor;
+      ctx.lineWidth = 0.5;
+      ctx.strokeRect(x, y, cellSize, cellSize);
+
+      // Ships on own board
+      if (!isEnemy && board[r][c] > 0) {
+        ctx.fillStyle = 'rgba(0,240,255,0.12)';
+        ctx.fillRect(x + 1, y + 1, cellSize - 2, cellSize - 2);
+        ctx.strokeStyle = 'rgba(0,240,255,0.5)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x + 2, y + 2, cellSize - 4, cellSize - 4);
+      }
+
+      // Hits display
+      const hitVal = isEnemy ? hits[r][c] : (myHits[r] ? myHits[r][c] : 0);
+      if (hitVal === 1) { // miss
+        ctx.fillStyle = 'rgba(0,102,255,0.4)';
+        ctx.beginPath();
+        ctx.arc(x + cellSize / 2, y + cellSize / 2, cellSize * 0.15, 0, Math.PI * 2);
+        ctx.fill();
+        // ripple
+        ctx.strokeStyle = 'rgba(0,102,255,0.2)';
+        ctx.lineWidth = 0.5;
+        ctx.beginPath();
+        ctx.arc(x + cellSize / 2, y + cellSize / 2, cellSize * 0.3, 0, Math.PI * 2);
+        ctx.stroke();
+      } else if (hitVal === 2) { // hit
+        ctx.fillStyle = 'rgba(255,51,68,0.6)';
+        ctx.fillRect(x + 2, y + 2, cellSize - 4, cellSize - 4);
+        // glow
+        ctx.shadowColor = '#ff3344';
+        ctx.shadowBlur = 8;
+        ctx.fillStyle = 'rgba(255,136,0,0.8)';
+        ctx.beginPath();
+        ctx.arc(x + cellSize / 2, y + cellSize / 2, cellSize * 0.2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      } else if (hitVal === 3) { // sunk (enemy grid)
+        ctx.fillStyle = 'rgba(255,51,68,0.3)';
+        ctx.fillRect(x + 1, y + 1, cellSize - 2, cellSize - 2);
+        ctx.fillStyle = 'rgba(255,136,0,0.7)';
+        ctx.beginPath();
+        ctx.arc(x + cellSize / 2, y + cellSize / 2, cellSize * 0.22, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+
+  // Draw sunk ship outlines on enemy grid
+  if (isEnemy && sunkShips) {
+    ctx.strokeStyle = 'rgba(255,51,68,0.7)';
+    ctx.lineWidth = 2;
+    for (const ship of sunkShips) {
+      for (const cell of ship.cells) {
+        const x = offsetX + cell.c * cellSize;
+        const y = offsetY + cell.r * cellSize;
+        ctx.strokeRect(x + 2, y + 2, cellSize - 4, cellSize - 4);
+      }
+    }
+  }
+
+  // Ghost preview (placement)
+  if (ghost && ghost.length > 0) {
+    const col = ghostValid ? 'rgba(0,240,255,0.3)' : 'rgba(255,51,68,0.3)';
+    const border = ghostValid ? 'rgba(0,240,255,0.6)' : 'rgba(255,51,68,0.6)';
+    for (const g of ghost) {
+      const x = offsetX + g.c * cellSize;
+      const y = offsetY + g.r * cellSize;
+      ctx.fillStyle = col;
+      ctx.fillRect(x + 1, y + 1, cellSize - 2, cellSize - 2);
+      ctx.strokeStyle = border;
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x + 2, y + 2, cellSize - 4, cellSize - 4);
+    }
+  }
+
+  // Target crosshair
+  if (isEnemy && target) {
+    const x = offsetX + target.c * cellSize;
+    const y = offsetY + target.r * cellSize;
+    const cx = x + cellSize / 2;
+    const cy = y + cellSize / 2;
+    ctx.strokeStyle = 'rgba(255,221,0,0.8)';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(x + 2, y + 2, cellSize - 4, cellSize - 4);
+    // crosshair lines
+    ctx.beginPath();
+    ctx.moveTo(cx - cellSize * 0.4, cy); ctx.lineTo(cx - cellSize * 0.15, cy);
+    ctx.moveTo(cx + cellSize * 0.15, cy); ctx.lineTo(cx + cellSize * 0.4, cy);
+    ctx.moveTo(cx, cy - cellSize * 0.4); ctx.lineTo(cx, cy - cellSize * 0.15);
+    ctx.moveTo(cx, cy + cellSize * 0.15); ctx.lineTo(cx, cy + cellSize * 0.4);
+    ctx.stroke();
+    // center dot
+    ctx.fillStyle = 'rgba(255,221,0,0.9)';
+    ctx.beginPath();
+    ctx.arc(cx, cy, 2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Row/col labels
+  ctx.fillStyle = 'rgba(255,255,255,0.25)';
+  ctx.font = `${Math.max(8, cellSize * 0.35)}px Rajdhani`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  for (let i = 0; i < GRID; i++) {
+    ctx.fillText(String.fromCharCode(65 + i), offsetX + i * cellSize + cellSize / 2, offsetY - cellSize * 0.35);
+    ctx.fillText(String(i + 1), offsetX - cellSize * 0.4, offsetY + i * cellSize + cellSize / 2);
+  }
+
+  // Draw particles in grid space
+  drawParticles(ctx, 0, 0);
+}
+
+// ---- Canvas Sizing ----
+function sizeCanvas(canvas, wrapper) {
+  const rect = wrapper.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  const w = rect.width;
+  // Grid is square so cap height to width to avoid wasted vertical space
+  const h = Math.min(rect.height, w);
+  canvas.width = w * dpr;
+  canvas.height = h * dpr;
+  canvas.style.width = w + 'px';
+  canvas.style.height = h + 'px';
+  canvas.getContext('2d').setTransform(dpr, 0, 0, dpr, 0, 0);
+  canvas._logicW = w;
+  canvas._logicH = h;
+}
+
+function sizeAllCanvases() {
+  if (gamePhase === 'placing') {
+    const pc = document.getElementById('placementCanvas');
+    const pw = pc.parentElement;
+    // Make placement canvas fill available space
+    const fleetBar = document.getElementById('fleetBar');
+    const placementInfo = document.getElementById('placementInfo');
+    const actions = document.querySelector('.placement-actions');
+    const oppStatus = document.getElementById('opponentStatus');
+    const header = pw.querySelector('p');
+    const usedH = (fleetBar?.offsetHeight || 0) + (placementInfo?.offsetHeight || 0) +
+                  (actions?.offsetHeight || 0) + (oppStatus?.offsetHeight || 0) + (header?.offsetHeight || 0) + 60;
+    const avail = window.innerHeight - usedH;
+    const sz = Math.min(avail, window.innerWidth - 16);
+    pc.style.width = sz + 'px';
+    pc.style.height = sz + 'px';
+    const dpr = window.devicePixelRatio || 1;
+    pc.width = sz * dpr;
+    pc.height = sz * dpr;
+    pc.getContext('2d').setTransform(dpr, 0, 0, dpr, 0, 0);
+    pc._logicW = sz;
+    pc._logicH = sz;
+  }
+  if (gamePhase === 'battle') {
+    const container = document.querySelector('.battle-container');
+    const containerRect = container.getBoundingClientRect();
+    const gridW = containerRect.width - 8; // 4px side padding each side
+
+    // Measure fixed-height elements
+    const statusH = document.querySelector('.battle-status').offsetHeight;
+    const bannerH = document.getElementById('turnBanner').offsetHeight;
+    const labels = container.querySelectorAll('.grid-label');
+    const labelH = (labels[0]?.offsetHeight || 0) + (labels[1]?.offsetHeight || 0);
+    const fireBtnH = document.querySelector('.fire-btn-container').offsetHeight;
+    const fixedH = statusH + bannerH + labelH + fireBtnH + 4; // 4 = vertical padding
+
+    const availH = window.innerHeight - fixedH;
+
+    // Split: 58% enemy, 42% your fleet, then cap each to square
+    let enemyH = Math.floor(availH * 0.58);
+    let myH = availH - enemyH;
+    enemyH = Math.min(enemyH, gridW);
+    myH = Math.min(myH, gridW);
+
+    // Redistribute leftover from square-capping
+    const leftover = availH - enemyH - myH;
+    if (leftover > 0) {
+      if (myH < gridW) {
+        myH = Math.min(myH + leftover, gridW);
+      } else if (enemyH < gridW) {
+        enemyH = Math.min(enemyH + leftover, gridW);
+      }
+    }
+
+    const enemyWrapper = document.querySelector('.enemy-grid-wrapper');
+    const myWrapper = document.querySelector('.my-grid-wrapper');
+    enemyWrapper.style.height = enemyH + 'px';
+    myWrapper.style.height = myH + 'px';
+
+    sizeCanvas(document.getElementById('enemyCanvas'), enemyWrapper);
+    sizeCanvas(document.getElementById('myCanvas'), myWrapper);
+  }
+}
+
+// ---- Screen Management ----
+G.showScreen = function(id) {
+  SFX.click();
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+
+  if (id === 'createScreen') {
+    gamePhase = 'waiting';
+    createGame();
+  } else if (id === 'joinScreen') {
+    gamePhase = 'waiting';
+    joinCode = '';
+    updateJoinDisplay();
+    buildKeyboard();
+  } else if (id === 'titleScreen') {
+    gamePhase = 'title';
+  }
+};
+
+G.backToTitle = function() {
+  SFX.click();
+  cleanup();
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('titleScreen').classList.add('active');
+  gamePhase = 'title';
+};
+
+G.showHowToPlay = function() {
+  SFX.click();
+  document.getElementById('howToPlayOverlay').classList.add('active');
+};
+G.hideHowToPlay = function() {
+  SFX.click();
+  document.getElementById('howToPlayOverlay').classList.remove('active');
+};
+
+// ---- Room Code ----
+function generateCode() {
+  let code = '';
+  for (let i = 0; i < 4; i++) code += LETTERS[Math.floor(Math.random() * LETTERS.length)];
+  return code;
+}
+
+G.copyCode = function() {
+  SFX.click();
+  navigator.clipboard.writeText(roomCode).catch(() => {});
+};
+
+G.shareCode = function() {
+  SFX.click();
+  if (navigator.share) {
+    navigator.share({ title: 'NeonBattle', text: `Join my NeonBattle game! Code: ${roomCode}`, url: window.location.href }).catch(() => {});
+  } else {
+    G.copyCode();
+  }
+};
+
+// ---- PeerJS Connection ----
+function createPeerConfig() {
+  return {
+    host: '0.peerjs.com',
+    port: 443,
+    secure: true,
+    config: {
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        // TURN server placeholder — uncomment and add credentials if needed:
+        // {
+        //   urls: 'turn:YOUR_TURN_SERVER:443',
+        //   username: 'YOUR_USERNAME',
+        //   credential: 'YOUR_CREDENTIAL'
+        // }
+      ]
+    }
+  };
+}
+
+function createGame() {
+  roomCode = generateCode();
+  document.getElementById('roomCodeDisplay').textContent = roomCode;
+  isHost = true;
+
+  const peerID = 'NB-' + roomCode;
+  peer = new Peer(peerID, createPeerConfig());
+
+  peer.on('open', () => {
+    console.log('Host peer open:', peerID);
+  });
+
+  peer.on('connection', (c) => {
+    conn = c;
+    setupConnection();
+  });
+
+  peer.on('error', (err) => {
+    console.error('Peer error:', err);
+    if (err.type === 'unavailable-id') {
+      // Code already taken, regenerate
+      roomCode = generateCode();
+      document.getElementById('roomCodeDisplay').textContent = roomCode;
+      peer.destroy();
+      createGame();
+    }
+  });
+
+  peer.on('disconnected', () => {
+    if (gamePhase !== 'title') tryReconnect();
+  });
+}
+
+G.connectToHost = function() {
+  if (joinCode.length !== 4) return;
+  SFX.click();
+  document.getElementById('joinStatus').textContent = 'Connecting...';
+  document.getElementById('connectBtn').disabled = true;
+  isHost = false;
+  roomCode = joinCode;
+
+  const myID = 'NB-' + joinCode + '-G-' + Math.random().toString(36).substr(2, 4);
+  peer = new Peer(myID, createPeerConfig());
+
+  peer.on('open', () => {
+    conn = peer.connect('NB-' + joinCode, { reliable: true });
+    conn.on('open', () => {
+      setupConnection();
+    });
+    conn.on('error', (err) => {
+      document.getElementById('joinStatus').textContent = 'Connection failed. Check code and try again.';
+      document.getElementById('connectBtn').disabled = false;
+    });
+  });
+
+  peer.on('error', (err) => {
+    console.error('Peer error:', err);
+    if (err.type === 'peer-unavailable') {
+      document.getElementById('joinStatus').textContent = 'No game found with that code. Check and try again.';
+      document.getElementById('connectBtn').disabled = false;
+    } else {
+      document.getElementById('joinStatus').textContent = "Can't connect. Check your internet and try again.";
+      document.getElementById('connectBtn').disabled = false;
+    }
+  });
+
+  peer.on('disconnected', () => {
+    if (gamePhase !== 'title') tryReconnect();
+  });
+
+  // Timeout
+  setTimeout(() => {
+    if (!conn || !conn.open) {
+      document.getElementById('joinStatus').textContent = "Couldn't connect. Both players need internet. Try again.";
+      document.getElementById('connectBtn').disabled = false;
+    }
+  }, 15000);
+};
+
+function setupConnection() {
+  SFX.connected();
+  reconnectAttempts = 0;
+  hideReconnect();
+
+  conn.on('data', handleMessage);
+  conn.on('close', () => {
+    if (gamePhase !== 'title' && gamePhase !== 'over') {
+      SFX.disconnected();
+      showReconnect();
+      tryReconnect();
+    }
+  });
+  conn.on('error', (err) => {
+    console.error('Connection error:', err);
+  });
+
+  // If we were reconnecting during a game, resync
+  if (savedGameState && (gamePhase === 'battle' || gamePhase === 'placing')) {
+    send({ type: 'sync', turn: turnCount, phase: gamePhase, ready: myReady });
+    return;
+  }
+
+  // Start placement phase
+  enterPlacement();
+}
+
+function send(data) {
+  if (conn && conn.open) {
+    try { conn.send(data); } catch (e) { console.error('Send error:', e); }
+  }
+}
+
+function handleMessage(data) {
+  switch (data.type) {
+    case 'ready':
+      opponentReady = true;
+      document.getElementById('opponentStatus').textContent = 'Opponent ready!';
+      document.getElementById('opponentStatus').style.color = '#00ff88';
+      if (myReady && opponentReady) startBattle();
+      break;
+    case 'attack':
+      handleIncomingAttack(data.row, data.col);
+      break;
+    case 'result':
+      handleAttackResult(data);
+      break;
+    case 'chat':
+      showEmojiPopup(data.emoji);
+      SFX.emoji();
+      break;
+    case 'rematch':
+      if (data.accept) {
+        rematchReceived = true;
+        document.getElementById('rematchStatus').textContent = 'Opponent wants a rematch!';
+        if (rematchSent && rematchReceived) startRematch();
+      }
+      break;
+    case 'sync':
+      // Reconnection sync
+      if (data.phase === 'battle' && gamePhase === 'battle') {
+        // Resync turn
+        send({ type: 'sync-ack', turn: turnCount });
+      }
+      break;
+    case 'sync-ack':
+      hideReconnect();
+      break;
+  }
+}
+
+// ---- Reconnection ----
+function showReconnect() {
+  document.getElementById('reconnectOverlay').classList.add('active');
+}
+function hideReconnect() {
+  document.getElementById('reconnectOverlay').classList.remove('active');
+  clearTimeout(reconnectTimer);
+  reconnectAttempts = 0;
+}
+
+function tryReconnect() {
+  if (reconnectAttempts >= 10) {
+    document.getElementById('reconnectMsg').textContent = 'Connection lost. Share a new room code to restart.';
+    return;
+  }
+  reconnectAttempts++;
+  document.getElementById('reconnectMsg').textContent = `Reconnecting... (${reconnectAttempts}/10)`;
+  showReconnect();
+
+  // Save state
+  saveGameState();
+
+  reconnectTimer = setTimeout(() => {
+    if (peer && peer.disconnected) {
+      peer.reconnect();
+    }
+    if (conn && !conn.open && peer && peer.open) {
+      // Try reconnecting
+      if (!isHost) {
+        conn = peer.connect('NB-' + roomCode, { reliable: true });
+        conn.on('open', () => setupConnection());
+        conn.on('error', () => tryReconnect());
+      }
+    } else if (!peer || peer.destroyed) {
+      // Need full reconnect
+      tryReconnect();
+    } else {
+      tryReconnect();
+    }
+  }, 3000);
+}
+
+function saveGameState() {
+  savedGameState = {
+    myBoard: JSON.parse(JSON.stringify(myBoard)),
+    myHits: JSON.parse(JSON.stringify(myHits)),
+    enemyBoard: JSON.parse(JSON.stringify(enemyBoard)),
+    myShips: JSON.parse(JSON.stringify(myShips)),
+    isMyTurn, shotsFired, shotsHit, turnCount, mySunkCount, enemySunkCount, gamePhase
+  };
+}
+
+// ---- Visibility Change (Safari background killing) ----
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && conn && !conn.open && gamePhase !== 'title') {
+    tryReconnect();
+  }
+});
+window.addEventListener('focus', () => {
+  if (conn && !conn.open && gamePhase !== 'title') {
+    tryReconnect();
+  }
+});
+
+// ---- Join Keyboard ----
+function buildKeyboard() {
+  const kb = document.getElementById('joinKeyboard');
+  kb.innerHTML = '';
+  for (const ch of LETTERS) {
+    const btn = document.createElement('button');
+    btn.className = 'key-btn';
+    btn.textContent = ch;
+    btn.addEventListener('touchstart', (e) => { e.preventDefault(); addJoinChar(ch); }, { passive: false });
+    btn.addEventListener('click', (e) => { e.preventDefault(); addJoinChar(ch); });
+    kb.appendChild(btn);
+  }
+  // Delete button
+  const del = document.createElement('button');
+  del.className = 'key-btn wide';
+  del.textContent = '⌫';
+  del.addEventListener('touchstart', (e) => { e.preventDefault(); delJoinChar(); }, { passive: false });
+  del.addEventListener('click', (e) => { e.preventDefault(); delJoinChar(); });
+  kb.appendChild(del);
+}
+
+function addJoinChar(ch) {
+  if (joinCode.length >= 4) return;
+  SFX.tick();
+  joinCode += ch;
+  updateJoinDisplay();
+}
+
+function delJoinChar() {
+  if (joinCode.length === 0) return;
+  SFX.tick();
+  joinCode = joinCode.slice(0, -1);
+  updateJoinDisplay();
+}
+
+function updateJoinDisplay() {
+  const disp = document.getElementById('joinCodeDisplay');
+  let html = '';
+  for (let i = 0; i < 4; i++) {
+    const ch = joinCode[i] || '_';
+    const filled = joinCode[i] ? ' filled' : '';
+    html += `<span class="char${filled}">${ch}</span>`;
+  }
+  disp.innerHTML = html;
+  document.getElementById('connectBtn').disabled = joinCode.length !== 4;
+}
+
+// ---- Ship Placement ----
+function enterPlacement() {
+  gamePhase = 'placing';
+  myBoard = initBoard();
+  myHits = initBoard();
+  enemyBoard = initBoard();
+  enemySunkShips = [];
+  myShips = [];
+  placedShips = [];
+  selectedShipIdx = -1;
+  shipOrientation = 'h';
+  ghostCells = [];
+  myReady = false;
+  opponentReady = false;
+  targetCell = null;
+  shotsFired = 0;
+  shotsHit = 0;
+  turnCount = 0;
+  mySunkCount = 0;
+  enemySunkCount = 0;
+  rematchSent = false;
+  rematchReceived = false;
+
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('placementScreen').classList.add('active');
+  document.getElementById('readyBtn').disabled = true;
+  document.getElementById('opponentStatus').textContent = 'Waiting for opponent...';
+  document.getElementById('opponentStatus').style.color = 'rgba(255,255,255,0.5)';
+
+  buildFleetBar();
+  requestAnimationFrame(() => {
+    sizeAllCanvases();
+    renderPlacement();
+  });
+}
+
+function buildFleetBar() {
+  const bar = document.getElementById('fleetBar');
+  bar.innerHTML = '';
+  SHIPS.forEach((ship, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'fleet-ship';
+    btn.textContent = `${ship.name} (${ship.size})`;
+    btn.dataset.idx = i;
+    btn.addEventListener('touchstart', (e) => { e.preventDefault(); selectShip(i); }, { passive: false });
+    btn.addEventListener('click', (e) => { e.preventDefault(); selectShip(i); });
+    bar.appendChild(btn);
+  });
+}
+
+function selectShip(idx) {
+  // If ship already placed, pick it up
+  const existing = placedShips.findIndex(s => s.shipIdx === idx);
+  if (existing >= 0) {
+    // Remove from board
+    const ship = placedShips[existing];
+    for (const cell of ship.cells) myBoard[cell.r][cell.c] = 0;
+    placedShips.splice(existing, 1);
+  }
+  selectedShipIdx = idx;
+  SFX.click();
+  updateFleetBar();
+  document.getElementById('placementInfo').textContent = `Place ${SHIPS[idx].name} (${SHIPS[idx].size}) — tap grid`;
+  renderPlacement();
+}
+
+function updateFleetBar() {
+  document.querySelectorAll('.fleet-ship').forEach(btn => {
+    const idx = parseInt(btn.dataset.idx);
+    const isPlaced = placedShips.some(s => s.shipIdx === idx);
+    const isSelected = selectedShipIdx === idx;
+    btn.className = 'fleet-ship' + (isPlaced ? ' placed' : '') + (isSelected ? ' selected' : '');
+  });
+  document.getElementById('readyBtn').disabled = placedShips.length !== SHIPS.length;
+}
+
+G.rotateShip = function() {
+  SFX.rotate();
+  shipOrientation = shipOrientation === 'h' ? 'v' : 'h';
+  renderPlacement();
+};
+
+G.randomPlacement = function() {
+  SFX.click();
+  // Clear board
+  myBoard = initBoard();
+  placedShips = [];
+  selectedShipIdx = -1;
+
+  for (let si = 0; si < SHIPS.length; si++) {
+    let placed = false;
+    let attempts = 0;
+    while (!placed && attempts < 200) {
+      attempts++;
+      const orient = Math.random() < 0.5 ? 'h' : 'v';
+      const r = Math.floor(Math.random() * GRID);
+      const c = Math.floor(Math.random() * GRID);
+      const cells = getShipCells(r, c, SHIPS[si].size, orient);
+      if (cells && isValidPlacement(cells, -1)) {
+        for (const cell of cells) myBoard[cell.r][cell.c] = si + 1;
+        placedShips.push({ shipIdx: si, cells, orient });
+        placed = true;
+      }
+    }
+  }
+  updateFleetBar();
+  renderPlacement();
+};
+
+function getShipCells(r, c, size, orient) {
+  const cells = [];
+  for (let i = 0; i < size; i++) {
+    const nr = orient === 'v' ? r + i : r;
+    const nc = orient === 'h' ? c + i : c;
+    if (nr < 0 || nr >= GRID || nc < 0 || nc >= GRID) return null;
+    cells.push({ r: nr, c: nc });
+  }
+  return cells;
+}
+
+function isValidPlacement(cells, ignoreShipIdx) {
+  for (const cell of cells) {
+    const val = myBoard[cell.r][cell.c];
+    if (val > 0 && (ignoreShipIdx < 0 || val !== ignoreShipIdx + 1)) return false;
+  }
+  return true;
+}
+
+// Placement canvas touch
+document.getElementById('placementCanvas').addEventListener('touchstart', (e) => {
+  e.preventDefault();
+  const touch = e.touches[0];
+  handlePlacementTap(touch.clientX, touch.clientY);
+}, { passive: false });
+document.getElementById('placementCanvas').addEventListener('click', (e) => {
+  handlePlacementTap(e.clientX, e.clientY);
+});
+document.getElementById('placementCanvas').addEventListener('touchmove', (e) => {
+  e.preventDefault();
+  const touch = e.touches[0];
+  handlePlacementHover(touch.clientX, touch.clientY);
+}, { passive: false });
+
+function canvasToGrid(canvas, clientX, clientY) {
+  const rect = canvas.getBoundingClientRect();
+  const x = clientX - rect.left;
+  const y = clientY - rect.top;
+  const w = canvas._logicW || rect.width;
+  const h = canvas._logicH || rect.height;
+  const cellSize = Math.floor(Math.min(w, h) / (GRID + 1));
+  const offsetX = Math.floor((w - cellSize * GRID) / 2);
+  const offsetY = Math.floor((h - cellSize * GRID) / 2);
+  const col = Math.floor((x - offsetX) / cellSize);
+  const row = Math.floor((y - offsetY) / cellSize);
+  if (row < 0 || row >= GRID || col < 0 || col >= GRID) return null;
+  return { r: row, c: col };
+}
+
+function handlePlacementTap(clientX, clientY) {
+  const canvas = document.getElementById('placementCanvas');
+  const cell = canvasToGrid(canvas, clientX, clientY);
+  if (!cell) return;
+
+  if (selectedShipIdx < 0) {
+    // Check if tapping a placed ship to pick it up
+    const val = myBoard[cell.r][cell.c];
+    if (val > 0) {
+      selectShip(val - 1);
+    }
+    return;
+  }
+
+  const ship = SHIPS[selectedShipIdx];
+  const cells = getShipCells(cell.r, cell.c, ship.size, shipOrientation);
+  if (!cells || !isValidPlacement(cells, selectedShipIdx)) {
+    SFX.error();
+    return;
+  }
+
+  SFX.place();
+  for (const c of cells) myBoard[c.r][c.c] = selectedShipIdx + 1;
+  placedShips.push({ shipIdx: selectedShipIdx, cells, orient: shipOrientation });
+  selectedShipIdx = -1;
+  ghostCells = [];
+  document.getElementById('placementInfo').textContent = placedShips.length < SHIPS.length ? 'Select a ship to place' : 'All ships placed! Hit READY';
+  updateFleetBar();
+  renderPlacement();
+}
+
+function handlePlacementHover(clientX, clientY) {
+  if (selectedShipIdx < 0) return;
+  const canvas = document.getElementById('placementCanvas');
+  const cell = canvasToGrid(canvas, clientX, clientY);
+  if (!cell) { ghostCells = []; renderPlacement(); return; }
+  const ship = SHIPS[selectedShipIdx];
+  const cells = getShipCells(cell.r, cell.c, ship.size, shipOrientation);
+  ghostCells = cells || [];
+  renderPlacement();
+}
+
+function renderPlacement() {
+  const canvas = document.getElementById('placementCanvas');
+  const ctx = canvas.getContext('2d');
+  const valid = ghostCells.length > 0 && isValidPlacement(ghostCells, selectedShipIdx);
+  drawGrid(ctx, canvas, myBoard, initBoard(), false, placedShips, null, null, ghostCells, valid);
+}
+
+G.lockReady = function() {
+  if (placedShips.length !== SHIPS.length) return;
+  SFX.ready();
+  myReady = true;
+  document.getElementById('readyBtn').disabled = true;
+  document.getElementById('placementInfo').textContent = 'Locked in! Waiting for battle...';
+
+  // Build myShips array
+  myShips = placedShips.map(ps => ({
+    name: SHIPS[ps.shipIdx].name,
+    size: SHIPS[ps.shipIdx].size,
+    cells: [...ps.cells],
+    hits: 0
+  }));
+
+  send({ type: 'ready' });
+  if (myReady && opponentReady) startBattle();
+};
+
+// ---- Battle Phase ----
+function startBattle() {
+  gamePhase = 'battle';
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('battleScreen').classList.add('active');
+
+  // Host goes first
+  isMyTurn = isHost;
+  updateTurnBanner();
+
+  if (isMyTurn) SFX.sonar();
+
+  requestAnimationFrame(() => {
+    sizeAllCanvases();
+    renderBattle();
+  });
+
+  // Setup enemy canvas touch
+  setupBattleTouch();
+}
+
+function setupBattleTouch() {
+  const ec = document.getElementById('enemyCanvas');
+  ec.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    if (!isMyTurn) return;
+    const touch = e.touches[0];
+    handleEnemyTap(touch.clientX, touch.clientY);
+  }, { passive: false });
+  ec.addEventListener('click', (e) => {
+    if (!isMyTurn) return;
+    handleEnemyTap(e.clientX, e.clientY);
+  });
+}
+
+function handleEnemyTap(clientX, clientY) {
+  const canvas = document.getElementById('enemyCanvas');
+  const cell = canvasToGrid(canvas, clientX, clientY);
+  if (!cell) return;
+  if (enemyBoard[cell.r][cell.c] !== 0) return; // already attacked
+  SFX.tick();
+  targetCell = { r: cell.r, c: cell.c };
+  document.getElementById('fireBtn').disabled = false;
+  renderBattle();
+}
+
+function updateTurnBanner() {
+  const banner = document.getElementById('turnBanner');
+  if (isMyTurn) {
+    banner.textContent = 'YOUR TURN';
+    banner.className = 'turn-banner your-turn';
+    document.getElementById('fireBtn').disabled = !targetCell;
+  } else {
+    banner.textContent = "OPPONENT'S TURN";
+    banner.className = 'turn-banner opponent-turn';
+    document.getElementById('fireBtn').disabled = true;
+  }
+}
+
+G.fireShot = function() {
+  if (!isMyTurn || !targetCell) return;
+  SFX.fire();
+  shotsFired++;
+  send({ type: 'attack', row: targetCell.r, col: targetCell.c });
+  // Wait for result
+  isMyTurn = false;
+  document.getElementById('fireBtn').disabled = true;
+  const banner = document.getElementById('turnBanner');
+  banner.textContent = 'AWAITING RESULT...';
+  banner.className = 'turn-banner opponent-turn';
+
+  // Spawn fire particles at target
+  spawnAttackParticles(targetCell.r, targetCell.c, true);
+};
+
+function handleAttackResult(data) {
+  const { row, col, hit, sunk } = data;
+  turnCount++;
+
+  if (hit) {
+    enemyBoard[row][col] = 2;
+    shotsHit++;
+    SFX.hitEnemy();
+    spawnHitParticles(row, col, true);
+
+    if (sunk) {
+      SFX.sunkEnemy();
+      enemySunkCount++;
+      // Reveal sunk ship
+      if (data.cells) {
+        for (const cell of data.cells) enemyBoard[cell.r][cell.c] = 3;
+        enemySunkShips.push({ name: sunk, cells: data.cells });
+      }
+      showSunkAnnounce(`YOU SUNK THEIR ${sunk.toUpperCase()}!`, false);
+
+      // Check win
+      if (enemySunkCount >= 5) {
+        setTimeout(() => endGame(true), 1500);
+        renderBattle();
+        return;
+      }
+    }
+  } else {
+    enemyBoard[row][col] = 1;
+    SFX.missEnemy();
+    spawnMissParticles(row, col, true);
+  }
+
+  targetCell = null;
+  isMyTurn = false;
+  updateTurnBanner();
+  renderBattle();
+}
+
+function handleIncomingAttack(row, col) {
+  SFX.incoming();
+  setTimeout(() => {
+    const val = myBoard[row][col];
+    let hit = val > 0;
+    let sunk = null;
+    let sunkCells = null;
+
+    if (hit) {
+      myHits[row][col] = 2;
+      SFX.hitMe();
+      spawnHitParticles(row, col, false);
+
+      // Find which ship was hit
+      const ship = myShips.find(s => s.cells.some(c => c.r === row && c.c === col));
+      if (ship) {
+        ship.hits++;
+        if (ship.hits >= ship.size) {
+          sunk = ship.name;
+          sunkCells = ship.cells;
+          mySunkCount++;
+          SFX.sunkMine();
+          showSunkAnnounce(`YOUR ${ship.name.toUpperCase()} WAS SUNK!`, true);
+        }
+      }
+    } else {
+      myHits[row][col] = 1;
+      SFX.missEnemy(); // splash sound
+      spawnMissParticles(row, col, false);
+    }
+
+    const result = { type: 'result', row, col, hit, sunk };
+    if (sunkCells) result.cells = sunkCells;
+    send(result);
+
+    turnCount++;
+
+    // Check loss
+    if (mySunkCount >= 5) {
+      setTimeout(() => endGame(false), 1500);
+      renderBattle();
+      return;
+    }
+
+    isMyTurn = true;
+    updateTurnBanner();
+    SFX.sonar();
+    renderBattle();
+  }, 400);
+}
+
+// ---- Particle Spawners ----
+function getCanvasPixelForCell(row, col, isEnemy) {
+  const canvas = document.getElementById(isEnemy ? 'enemyCanvas' : 'myCanvas');
+  if (!canvas) return { x: 0, y: 0 };
+  const { cellSize, offsetX, offsetY } = getGridMetrics(canvas);
+  return { x: offsetX + col * cellSize + cellSize / 2, y: offsetY + row * cellSize + cellSize / 2, cellSize };
+}
+
+function spawnAttackParticles(row, col, isEnemy) {
+  const { x, y, cellSize } = getCanvasPixelForCell(row, col, isEnemy);
+  for (let i = 0; i < 5; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 30 + Math.random() * 50;
+    spawnParticle(x, y, Math.cos(angle) * speed, Math.sin(angle) * speed - 40, '#ffdd00', 0.5 + Math.random() * 0.3, 2 + Math.random() * 2);
+  }
+}
+
+function spawnHitParticles(row, col, isEnemy) {
+  const { x, y, cellSize } = getCanvasPixelForCell(row, col, isEnemy);
+  for (let i = 0; i < 15; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 40 + Math.random() * 80;
+    const colors = ['#ff3344', '#ff8800', '#ffdd00', '#ff5500'];
+    spawnParticle(x, y, Math.cos(angle) * speed, Math.sin(angle) * speed - 60, colors[Math.floor(Math.random() * colors.length)], 0.4 + Math.random() * 0.5, 2 + Math.random() * 3);
+  }
+  // Smoke
+  for (let i = 0; i < 5; i++) {
+    spawnParticle(x + (Math.random() - 0.5) * 10, y, (Math.random() - 0.5) * 15, -30 - Math.random() * 40, '#555555', 0.6 + Math.random() * 0.4, 3 + Math.random() * 2);
+  }
+}
+
+function spawnMissParticles(row, col, isEnemy) {
+  const { x, y, cellSize } = getCanvasPixelForCell(row, col, isEnemy);
+  for (let i = 0; i < 8; i++) {
+    const angle = -Math.PI / 2 + (Math.random() - 0.5) * Math.PI * 0.8;
+    const speed = 30 + Math.random() * 50;
+    spawnParticle(x, y, Math.cos(angle) * speed, Math.sin(angle) * speed, '#4488ff', 0.3 + Math.random() * 0.3, 1.5 + Math.random() * 2);
+  }
+}
+
+function spawnVictoryParticles() {
+  for (let i = 0; i < 30; i++) {
+    const x = Math.random() * window.innerWidth;
+    const y = window.innerHeight + 10;
+    const colors = ['#ffdd00', '#ff8800', '#00f0ff', '#ff00aa', '#00ff88'];
+    spawnParticle(x, y, (Math.random() - 0.5) * 60, -150 - Math.random() * 200, colors[Math.floor(Math.random() * colors.length)], 1 + Math.random() * 1.5, 2 + Math.random() * 3);
+  }
+}
+
+// ---- Battle Rendering ----
+function renderBattle() {
+  const ec = document.getElementById('enemyCanvas');
+  const mc = document.getElementById('myCanvas');
+  if (!ec || !mc) return;
+  const ectx = ec.getContext('2d');
+  const mctx = mc.getContext('2d');
+  drawGrid(ectx, ec, enemyBoard, enemyBoard, true, null, enemySunkShips, targetCell, null, false);
+  drawGrid(mctx, mc, myBoard, myHits, false, myShips, null, null, null, false);
+}
+
+// ---- Sunk Announcement ----
+function showSunkAnnounce(text, isMine) {
+  const el = document.getElementById('sunkAnnounce');
+  el.textContent = text;
+  el.className = 'sunk-announce ' + (isMine ? 'my-sunk' : 'enemy-sunk');
+  // Trigger animation
+  void el.offsetWidth;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+// ---- Game Over ----
+function endGame(won) {
+  gamePhase = 'over';
+
+  if (won) {
+    SFX.victory();
+    spawnVictoryParticles();
+  } else {
+    SFX.defeat();
+  }
+
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('gameOverScreen').classList.add('active');
+
+  const title = document.getElementById('gameOverTitle');
+  title.textContent = won ? 'VICTORY!' : 'DEFEAT';
+  title.className = 'game-over-title ' + (won ? 'victory' : 'defeat');
+
+  const accuracy = shotsFired > 0 ? Math.round((shotsHit / shotsFired) * 100) : 0;
+  document.getElementById('gameOverStats').innerHTML = `
+    <span class="stat-label">Shots Fired</span><span class="stat-value">${shotsFired}</span>
+    <span class="stat-label">Accuracy</span><span class="stat-value">${accuracy}%</span>
+    <span class="stat-label">Ships Sunk</span><span class="stat-value">${enemySunkCount}</span>
+    <span class="stat-label">Turns</span><span class="stat-value">${turnCount}</span>
+  `;
+
+  document.getElementById('rematchStatus').textContent = '';
+  rematchSent = false;
+  rematchReceived = false;
+
+  // Build emoji reactions
+  const emojiDiv = document.getElementById('gameOverEmojis');
+  emojiDiv.innerHTML = '';
+  ['👏','🔥','😂','😤','💪','🎉'].forEach(em => {
+    const btn = document.createElement('button');
+    btn.textContent = em;
+    btn.addEventListener('click', () => { send({ type: 'chat', emoji: em }); SFX.emoji(); });
+    emojiDiv.appendChild(btn);
+  });
+
+  // Keep spawning victory particles
+  if (won) {
+    let count = 0;
+    const interval = setInterval(() => {
+      spawnVictoryParticles();
+      count++;
+      if (count > 5 || gamePhase !== 'over') clearInterval(interval);
+    }, 600);
+  }
+}
+
+G.requestRematch = function() {
+  SFX.click();
+  rematchSent = true;
+  send({ type: 'rematch', accept: true });
+  document.getElementById('rematchStatus').textContent = 'Rematch request sent...';
+  if (rematchSent && rematchReceived) startRematch();
+};
+
+function startRematch() {
+  SFX.ready();
+  enterPlacement();
+}
+
+// ---- Emoji System ----
+G.toggleEmoji = function() {
+  document.getElementById('emojiTray').classList.toggle('open');
+};
+
+function buildEmojiTray() {
+  const tray = document.getElementById('emojiTray');
+  tray.innerHTML = '';
+  EMOJIS.forEach(em => {
+    const btn = document.createElement('button');
+    btn.textContent = em;
+    btn.addEventListener('click', () => {
+      send({ type: 'chat', emoji: em });
+      SFX.emoji();
+      tray.classList.remove('open');
+    });
+    tray.appendChild(btn);
+  });
+}
+buildEmojiTray();
+
+function showEmojiPopup(emoji) {
+  const el = document.getElementById('emojiPopup');
+  el.textContent = emoji;
+  el.className = 'emoji-popup';
+  void el.offsetWidth;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2000);
+}
+
+// ---- Sound Toggle ----
+soundEnabled = localStorage.getItem('neonbattle-sound') !== 'off';
+updateSoundBtn();
+
+document.getElementById('soundToggle').addEventListener('click', () => {
+  soundEnabled = !soundEnabled;
+  localStorage.setItem('neonbattle-sound', soundEnabled ? 'on' : 'off');
+  updateSoundBtn();
+  if (soundEnabled) {
+    // Unlock audio context on user gesture
+    getAudio();
+    SFX.click();
+  }
+});
+
+function updateSoundBtn() {
+  document.getElementById('soundToggle').textContent = soundEnabled ? '🔊' : '🔇';
+}
+
+// ---- Cleanup ----
+function cleanup() {
+  if (conn) { try { conn.close(); } catch(e){} conn = null; }
+  if (peer) { try { peer.destroy(); } catch(e){} peer = null; }
+  clearTimeout(reconnectTimer);
+  hideReconnect();
+  savedGameState = null;
+  document.getElementById('emojiTray').classList.remove('open');
+}
+
+// ---- Main Animation Loop ----
+let lastTime = 0;
+function mainLoop(ts) {
+  const dt = Math.min((ts - lastTime) / 1000, 0.1);
+  lastTime = ts;
+
+  drawBg(dt);
+  updateParticles(dt);
+
+  if (gamePhase === 'battle') {
+    renderBattle();
+  } else if (gamePhase === 'placing') {
+    renderPlacement();
+  }
+
+  requestAnimationFrame(mainLoop);
+}
+requestAnimationFrame((ts) => { lastTime = ts; mainLoop(ts); });
+
+// ---- Resize Handler ----
+window.addEventListener('resize', () => {
+  resizeBg();
+  requestAnimationFrame(() => sizeAllCanvases());
+});
+
+// Prevent iOS bounce / pull-to-refresh
+document.addEventListener('touchmove', (e) => {
+  if (e.target.closest('.how-to-play')) return; // allow scroll in how-to-play
+  e.preventDefault();
+}, { passive: false });
+
+// ---- PWA Registration ----
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
