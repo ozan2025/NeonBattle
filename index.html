@@ -275,17 +275,17 @@ body { padding-top: var(--safe-top); padding-bottom: var(--safe-bottom); }
 }
 .battle-status {
   display: flex; justify-content: space-between; align-items: center;
-  padding: 2px 8px;
+  padding: 1px 8px;
   font-family: var(--font-title);
-  font-size: 0.65rem;
+  font-size: 0.6rem;
   flex-shrink: 0;
 }
 .turn-banner {
   font-family: var(--font-title);
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   font-weight: 700;
   text-align: center;
-  padding: 2px 0;
+  padding: 1px 0;
   letter-spacing: 2px;
   flex-shrink: 0;
   transition: all 0.3s;
@@ -294,9 +294,9 @@ body { padding-top: var(--safe-top); padding-bottom: var(--safe-bottom); }
 .turn-banner.opponent-turn { color: var(--red); text-shadow: 0 0 10px rgba(255,51,68,0.3); }
 .grid-label {
   font-family: var(--font-title);
-  font-size: 0.55rem;
+  font-size: 0.5rem;
   letter-spacing: 2px;
-  padding: 1px 8px;
+  padding: 0 8px;
   opacity: 0.6;
   flex-shrink: 0;
 }
@@ -317,9 +317,9 @@ body { padding-top: var(--safe-top); padding-bottom: var(--safe-bottom); }
 }
 .fire-btn {
   font-family: var(--font-title);
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   font-weight: 900;
-  padding: 5px 36px;
+  padding: 4px 32px;
   border: 2px solid var(--red);
   background: rgba(255,51,68,0.15);
   color: var(--red);
@@ -329,7 +329,7 @@ body { padding-top: var(--safe-top); padding-bottom: var(--safe-bottom); }
   touch-action: manipulation;
   text-shadow: 0 0 8px rgba(255,51,68,0.5);
   transition: all 0.2s;
-  min-height: 32px;
+  min-height: 28px;
 }
 .fire-btn:active { background: rgba(255,51,68,0.4); transform: scale(0.95); }
 .fire-btn:disabled { opacity: 0.2; pointer-events: none; }
@@ -1259,7 +1259,9 @@ function sizeAllCanvases() {
     const fireBtnH = document.querySelector('.fire-btn-container').offsetHeight;
     const fixedH = statusH + bannerH + labelH + fireBtnH + 4; // 4 = vertical padding
 
-    const availH = window.innerHeight - fixedH;
+    // Use visualViewport on iOS Safari for actual visible height
+    const vh = window.visualViewport?.height || window.innerHeight;
+    const availH = vh - fixedH;
 
     // Split: 58% enemy, 42% your fleet, then cap each to square
     let enemyH = Math.floor(availH * 0.58);
@@ -1961,7 +1963,8 @@ function handleAttackResult(data) {
   }
 
   targetCell = null;
-  isMyTurn = false;
+  // Hit = extra turn, miss = turn passes
+  isMyTurn = hit ? true : false;
   updateTurnBanner();
   renderBattle();
 }
@@ -2010,9 +2013,10 @@ function handleIncomingAttack(row, col) {
       return;
     }
 
-    isMyTurn = true;
+    // Hit = opponent fires again, miss = my turn
+    isMyTurn = hit ? false : true;
     updateTurnBanner();
-    SFX.sonar();
+    if (isMyTurn) SFX.sonar();
     renderBattle();
   }, 400);
 }
