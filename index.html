@@ -555,7 +555,7 @@ body { padding-top: var(--safe-top); padding-bottom: var(--safe-bottom); }
     </div>
     <button class="btn small title-btn-secondary" style="margin-top:24px;opacity:0.6;" onclick="G.showHowToPlay()">HOW TO PLAY</button>
     <div class="production-credit" style="margin-top:48px;">AN OZAN SELCUK PRODUCTION</div>
-    <div style="font-family:var(--font-title);font-size:0.8rem;letter-spacing:3px;opacity:0.6;margin-top:8px;color:var(--cyan);">v6</div>
+    <div style="font-family:var(--font-title);font-size:0.8rem;letter-spacing:3px;opacity:0.6;margin-top:8px;color:var(--cyan);">v7</div>
   </div>
 </div>
 
@@ -614,7 +614,7 @@ body { padding-top: var(--safe-top); padding-bottom: var(--safe-bottom); }
     <div class="placement-info" id="placementInfo">Select a ship to place</div>
     <canvas id="placementCanvas"></canvas>
     <div class="placement-actions">
-      <button class="btn small" onclick="G.rotateShip()">ROTATE</button>
+      <button class="btn small" id="rotateBtn" onclick="G.rotateShip()">⟷ HORIZONTAL</button>
       <button class="btn small" onclick="G.randomPlacement()">RANDOM</button>
       <button class="btn small green" id="readyBtn" disabled onclick="G.lockReady()">READY</button>
     </div>
@@ -1758,6 +1758,7 @@ function enterPlacement() {
   placedShips = [];
   selectedShipIdx = -1;
   shipOrientation = 'h';
+  document.getElementById('rotateBtn').textContent = '⟷ HORIZONTAL';
   ghostCells = [];
   myReady = false;
   opponentReady = false;
@@ -1809,7 +1810,8 @@ function selectShip(idx) {
   selectedShipIdx = idx;
   SFX.click();
   updateFleetBar();
-  document.getElementById('placementInfo').textContent = `Place ${SHIPS[idx].name} (${SHIPS[idx].size}) — tap grid`;
+  const dir = shipOrientation === 'h' ? 'horizontally' : 'vertically';
+  document.getElementById('placementInfo').textContent = `Place ${SHIPS[idx].name} (${SHIPS[idx].size}) ${dir} — tap grid`;
   renderPlacement();
 }
 
@@ -1826,6 +1828,11 @@ function updateFleetBar() {
 G.rotateShip = function() {
   SFX.rotate();
   shipOrientation = shipOrientation === 'h' ? 'v' : 'h';
+  document.getElementById('rotateBtn').textContent = shipOrientation === 'h' ? '⟷ HORIZONTAL' : '⟶ VERTICAL';
+  if (selectedShipIdx >= 0) {
+    const dir = shipOrientation === 'h' ? 'horizontally' : 'vertically';
+    document.getElementById('placementInfo').textContent = `Place ${SHIPS[selectedShipIdx].name} (${SHIPS[selectedShipIdx].size}) ${dir} — tap grid`;
+  }
   renderPlacement();
 };
 
